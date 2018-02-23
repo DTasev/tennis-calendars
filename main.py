@@ -25,8 +25,6 @@ def getToday():
         f.write(data)
 
 
-# getToday()
-
 class Match:
     def __init__(self, playerOne, playerTwo, time):
         self.playerOne = playerOne
@@ -63,7 +61,10 @@ def display(cal):
     print(cal.to_ical().strip())
 
 
-def main():
+def main(updateCache=False):
+    if updateCache:
+        getToday()
+
     data = json.load(open(f"{today}.json", 'rb'))
 
     events = {}
@@ -71,17 +72,11 @@ def main():
     for match in data["sport_events"]:
         group(events, match)
 
-    gist = {
-        "description": "Calendars for each Tennis Tournament",
-        "public": "true"
-    }
-
     # dumps the existing data to a file
     # json.dump(gist, open('current.json', 'w'))
 
     # create the calendar data for each event
     # a calendar file is created per event, this way people can subscribe to certain events
-    files = {}
     for eventName, matches in events.items():
         print(eventName)
         cal = Calendar()
@@ -95,19 +90,8 @@ def main():
             e.add("summary", f"{match.playerOne} versus {match.playerTwo}")
             cal.add_component(e)
 
-        newMatchData = cal.to_ical().decode("utf-8")
-        files[f"{eventName}.ical"] = {
-            "content": newMatchData
-        }
-
-    gist["files"] = files
-
-    json.dump(gist, open('new.json', 'w'))
-    return
-    # TODO update ical tomorrow
-    r = requests.patch(f'https://api.github.com/gists/{gist_id}',
-                       auth=requests.auth.HTTPBasicAuth("DTasev", gist_api_key), data=json.dumps(gist))
-    print(r, r.reason)
+        with open(f'events/{eventName}.ical', 'w') as f:
+            f.write(cal.to_ical().decode("utf-8"))
 
 
 main()
