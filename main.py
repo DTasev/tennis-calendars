@@ -86,8 +86,8 @@ def main(updateCache=False):
             e.add("summary", f"{match.playerOne} versus {match.playerTwo}")
             cal.add_component(e)
 
-        with open(f'events/{eventName}.ical', 'w') as f:
-            f.write(cal.to_ical().decode("utf-8"))
+        with open(f'events/{eventName}.ical', 'wb') as f:
+            f.write(cal.to_ical())
         return
 
 
