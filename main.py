@@ -10,6 +10,7 @@ from icalendar import Calendar, Event
 from apikeys import *
 
 today = datetime.datetime.now().strftime("%Y-%m-%d")
+# today = datetime
 
 
 def getToday():
@@ -41,6 +42,16 @@ def fixName(playerName: str) -> str:
     return " / ".join(finalNames)
 
 
+class Match:
+    def __init__(self, playerOne, playerTwo, time):
+        self.playerOne = playerOne
+        self.playerTwo = playerTwo
+        self.time = time
+
+    def __str__(self):
+        return f"{self.playerOne} versus {self.playerTwo} at {self.time.strftime('%Y-%m-%d %H:%M')}"
+
+
 def group(events, e):
     if e["tournament"]["name"] not in events:
         events[e["tournament"]["name"]] = []
@@ -48,59 +59,79 @@ def group(events, e):
     timezoneColon = e["scheduled"].rfind(":")
     time = e["scheduled"][:timezoneColon] + e["scheduled"][timezoneColon + 1:]
     time = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S%z")
-    events[e["tournament"]["name"]].append(
-        (
-            e["competitors"][0]["name"],
-            e["competitors"][1]["name"],
-            time,
-        )
-    )
+    events[e["tournament"]["name"]].append(Match(e["competitors"][0]["name"], e["competitors"][1]["name"], time))
 
 
 def display(cal):
     print(cal.to_ical().strip())
 
 
-def main():
+def main(keepOld=True):
     data = json.load(open(f"{today}.json", 'rb'))
-    # print(data["sport_events"][-1])
-    # for entry in data["sport_events"]:
-    #     timezoneColon=entry["scheduled"].rfind(":")
-    #     time=entry["scheduled"][:timezoneColon] + entry["scheduled"][timezoneColon + 1:]
-    #     print(datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S%z"))
-
-    # print(data["sport_events"][0].keys())
 
     events = {}
     # group all the matches by event
     for match in data["sport_events"]:
         group(events, match)
 
+    # get the current calendar data in the GIST
+    currentData = json.loads(requests.get(f'https://api.github.com/gists/{gist_id}',
+                                          auth=requests.auth.HTTPBasicAuth("DTasev", gist_api_key)).content)
+
+    # remove all of github's metadata that can't be sent back in the PATCH request
+    onlyContentData = {}
+    for entry, value in currentData["files"].items():
+        onlyContentData[entry] = {"content": value["content"]}
+
     gist = {
-        "description": "Tennis Calendars",
-        "public": "true"
+        "description": currentData["description"],
+        "public": "true",
+        "files": onlyContentData
     }
 
-    files = {}
+    # dumps the existing data to a file
+    # json.dump(gist, open('current.json', 'w'))
+
+    # create the calendar data for each event
+    # a calendar file is created per event, this way people can subscribe to certain events
     for eventName, matches in events.items():
         print(eventName)
         cal = Calendar()
-        cal.add("NAME", eventName)
-        cal.add("prodid", f"-//{eventName}//dtasev.me//")
-        print("\n----------------------------------------")
+        # these only need to be added in a new calendar, but since we're appending to the already existing ones
+        # they do not need to be added again. This also means that a new calendar can't be initialised with the current code
+        # cal.add("NAME", eventName)
+        # cal.add("prodid", f"-//{eventName}//dtasev.me//")
         for match in matches:
-            print(match)
             e = Event()
-            e.add("dtstart", match[2])
-            e.add("summary", f"{match[0]} versus {match[1]}")
+            e.add("dtstart", match.time)
+            e.add("summary", f"{match.playerOne} versus {match.playerTwo}")
             cal.add_component(e)
 
-        files[f"{eventName}.ical"] = {
-            "content": cal.to_ical().decode("utf-8")
-        }
+        newMatchData = cal.to_ical().decode("utf-8")
 
-    gist["files"] = files
-    print(gist)
+        oldMatch = gist["files"].get(f"{eventName}.ical", None)
+        # if there is existing old match data, then append the new data at the end, this requires slight restructuring to remove the beginning
+        # BEGIN:VCALENDAR from the new data, and the trailing END:VCALENDAR from the OLD data.
+        if oldMatch:
+            oldMatchData = oldMatch["content"]
+
+            # remove the BEGIN:VCALENDAR from the data. This needs to be removed, as the new match data will be appended at the end
+            # of the old one, and we can't have 2 BEGIN:VCALENDARS
+            newMatchData = newMatchData[newMatchData.find("\n") + 1:]
+
+            # strip removes a trailing new line, then rfind finds the start of the last line, which will be removed
+            calendarEndLinePosition = oldMatchData.strip().rfind("\n")
+
+            # remove the END:VCALENDAR from the original string, append the new match data on the end. The newMatchData contains the necessary
+            # END:VCALENDAR string. This appends the new events to the old ones, forming a larger calendar
+            gist["files"][f"{eventName}.ical"]["content"] = oldMatchData[:calendarEndLinePosition + 1] + newMatchData
+
+        else:  # if there is NO data for this tournament, then create a new entry
+            gist["files"][f"{eventName}.ical"] = {"content": newMatchData}
+
+    json.dump(gist, open('new.json', 'w'))
+    return
+    # TODO update ical tomorrow
     r = requests.patch(f'https://api.github.com/gists/{gist_id}',
                        auth=requests.auth.HTTPBasicAuth("DTasev", gist_api_key), data=json.dumps(gist))
     print(r, r.reason)
