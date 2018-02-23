@@ -72,18 +72,14 @@ def main(updateCache=False):
     for match in data["sport_events"]:
         group(events, match)
 
-    # dumps the existing data to a file
-    # json.dump(gist, open('current.json', 'w'))
-
     # create the calendar data for each event
     # a calendar file is created per event, this way people can subscribe to certain events
     for eventName, matches in events.items():
-        print(eventName)
         cal = Calendar()
         # these only need to be added in a new calendar, but since we're appending to the already existing ones
         # they do not need to be added again. This also means that a new calendar can't be initialised with the current code
         cal.add("NAME", eventName)
-        cal.add("prodid", f"-//{eventName}//dtasev.me//")
+        cal.add("prodid", f"-//{eventName}//")
         for match in matches:
             e = Event()
             e.add("dtstart", match.time)
@@ -92,6 +88,7 @@ def main(updateCache=False):
 
         with open(f'events/{eventName}.ical', 'w') as f:
             f.write(cal.to_ical().decode("utf-8"))
+        return
 
 
 main()
