@@ -88,7 +88,6 @@ def main(updateCache=False):
 
         with open(f'events/{eventName}.ical', 'wb') as f:
             f.write(cal.to_ical())
-        return
 
 
 main()
