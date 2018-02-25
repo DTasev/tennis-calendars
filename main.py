@@ -78,7 +78,7 @@ class Match:
         self.status = status
         self.color = self.get_color(status)
         self.time = MatchTimes(time, time + datetime.timedelta(minutes=EVENT_DURATION_MINUTES))
-        self.name = f"{self.round} - {self.player_one} vs {self.player_two} - {self.status.replace('_', ' ').title()}"
+        self.name = f"{self.round} - {self.player_one} vs {self.player_two}"
 
     def __str__(self):
         return f"{self.player_one} versus {self.player_two} at {self.time.start.isoformat()}"
