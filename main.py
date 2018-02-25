@@ -276,7 +276,6 @@ def main(args):
     for c in calendarsList:
         calendars[c["summary"]] = {"id": c["id"]}
 
-    print(calendars)
     print("Calendars moved to dictionary.")
     # get tennis matches and group_by_tournament by tournament
     data = json.load(open(f"cache/{today}.json", 'rb'))
