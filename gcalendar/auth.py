@@ -1,19 +1,11 @@
-from __future__ import print_function
-import httplib2
+import datetime
 import os
 
+import httplib2
 from apiclient import discovery
 from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
-
-import datetime
-
-try:
-    import argparse
-    flags = argparse.ArgumentParser(parents=[tools.argparser]).parse_args()
-except ImportError:
-    flags = None
 
 # If modifying these scopes, delete your previously saved credentials
 # at ~/.credentials/calendar-python-quickstart.json
@@ -22,7 +14,7 @@ CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'Google Calendar API Python Quickstart'
 
 
-def get_credentials():
+def get_credentials(args):
     """Gets valid user credentials from storage.
 
     If nothing has been stored, or if the stored credentials are invalid,
@@ -43,12 +35,16 @@ def get_credentials():
     if not credentials or credentials.invalid:
         flow = client.flow_from_clientsecrets(CLIENT_SECRET_FILE, SCOPES)
         flow.user_agent = APPLICATION_NAME
-        if flags:
-            credentials = tools.run_flow(flow, store, flags)
-        else: # Needed only for compatibility with Python 2.6
-            credentials = tools.run(flow, store)
+        credentials = tools.run_flow(flow, store, args)
         print('Storing credentials to ' + credential_path)
     return credentials
+
+
+def auth(args):
+    credentials = get_credentials(args)
+    http = credentials.authorize(httplib2.Http())
+    return discovery.build('calendar', 'v3', http=http)
+
 
 def main():
     """Shows basic usage of the Google Calendar API.
@@ -56,14 +52,13 @@ def main():
     Creates a Google Calendar API service object and outputs a list of the next
     10 events on the user's calendar.
     """
-    credentials = get_credentials()
-    http = credentials.authorize(httplib2.Http())
-    service = discovery.build('calendar', 'v3', http=http)
+    service = auth()
 
-    now = datetime.datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
+    now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
     print('Getting the upcoming 10 events')
     eventsResult = service.events().list(
-        calendarId='primary', timeMin=now, maxResults=10, singleEvents=True,
+        calendarId='2pr9a9qr02j9lamllukocqqsec@group.calendar.google.com', timeMin=now, maxResults=10,
+        singleEvents=True,
         orderBy='startTime').execute()
     events = eventsResult.get('items', [])
 
@@ -71,7 +66,7 @@ def main():
         print('No upcoming events found.')
     for event in events:
         start = event['start'].get('dateTime', event['start'].get('date'))
-        print(start, event['summary'])
+        print(start, event['summary'], event)
 
     calendars = service.calendarList().list().execute()
     cals = calendars.get('items', "No calendars were found")
@@ -84,9 +79,10 @@ def main():
     # }
     # print("Creating calendar", name)
     # print(service.calendars().insert(body=calendarBody).execute())
-    created_event = service.events().quickAdd(calendarId="2pr9a9qr02j9lamllukocqqsec@group.calendar.google.com", text='API Tennis on 24/02/2018 20:00-21:00').execute()
+    # created_event = service.events().quickAdd(calendarId="2pr9a9qr02j9lamllukocqqsec@group.calendar.google.com",
+    #                                           text='API Tennis on 24/02/2018 23:30-00:00').execute()
 
-    print(created_event['id'])
+    # print(created_event['id'])
 
 
 if __name__ == '__main__':
