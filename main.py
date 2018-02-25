@@ -96,7 +96,6 @@ def group_by_tournament(events: {}, match):
     # if the tournament is ignored it is not added in the events list
     for ignored in IGNORE_TOURNAMENTS:
         if ignored in match_tournament_name:
-            print("Skipping tournament: ", match_tournament_name)
             return
     # if there is no previous matches for the event, initialise the list
     if match_tournament_name not in events:
