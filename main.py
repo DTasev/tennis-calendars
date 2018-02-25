@@ -19,6 +19,11 @@ CALENDAR_EMBED_BASE_URL = "https://calendar.google.com/calendar/embed?src={0}"
 CALENDAR_ICAL_BASE_URL = "https://calendar.google.com/calendar/ical/{0}/public/basic.ics"
 CALENDAR_URLS_FILENAME = "calendarUrls.md"
 
+IGNORE_TOURNAMENTS = [
+    "ITF",
+    "ATP Challenger",
+    "WTA 125K Indian Wells"
+]
 
 def getToday():
     conn = http.client.HTTPSConnection("api.sportradar.us")
@@ -79,7 +84,7 @@ class Match:
         return f"{self.player_one} versus {self.player_two} at {self.time.start.isoformat()}"
 
 
-def group(events: {}, match):
+def group_by_tournament(events: {}, match):
     """
     Groups together all the matches for each event. 
     The matches are grouped per event.
@@ -88,6 +93,11 @@ def group(events: {}, match):
     """
     match_tournament_name = match["tournament"]["name"]
 
+    # if the tournament is ignored it is not added in the events list
+    for ignored in IGNORE_TOURNAMENTS:
+        if ignored in match_tournament_name:
+            print("Skipping tournament: ", match_tournament_name)
+            return
     # if there is no previous matches for the event, initialise the list
     if match_tournament_name not in events:
         events[match_tournament_name] = []
@@ -269,13 +279,14 @@ def main(args):
 
     print(calendars)
     print("Calendars moved to dictionary.")
-    # get tennis matches and group by tournament
+    # get tennis matches and group_by_tournament by tournament
     data = json.load(open(f"cache/{today}.json", 'rb'))
     print("Loaded data from cache.")
+
     tournament = {}
-    # group all the matches by event
+    # group_by_tournament all the matches by event
     for match in data["sport_events"]:
-        group(tournament, match)
+        group_by_tournament(tournament, match)
     print("Grouped matches by tournament.")
 
     id = 0

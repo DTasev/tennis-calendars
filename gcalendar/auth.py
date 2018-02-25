@@ -57,7 +57,7 @@ def main():
     now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
     print('Getting the upcoming 10 events')
     eventsResult = service.events().list(
-        calendarId='2pr9a9qr02j9lamllukocqqsec@group.calendar.google.com', timeMin=now, maxResults=10,
+        calendarId='2pr9a9qr02j9lamllukocqqsec@group_by_tournament.calendar.google.com', timeMin=now, maxResults=10,
         singleEvents=True,
         orderBy='startTime').execute()
     events = eventsResult.get('items', [])
@@ -79,7 +79,7 @@ def main():
     # }
     # print("Creating calendar", name)
     # print(service.calendars().insert(body=calendarBody).execute())
-    # created_event = service.events().quickAdd(calendarId="2pr9a9qr02j9lamllukocqqsec@group.calendar.google.com",
+    # created_event = service.events().quickAdd(calendarId="2pr9a9qr02j9lamllukocqqsec@group_by_tournament.calendar.google.com",
     #                                           text='API Tennis on 24/02/2018 23:30-00:00').execute()
 
     # print(created_event['id'])
