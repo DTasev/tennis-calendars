@@ -291,9 +291,12 @@ def main(args):
             calendar_id = calendars[tournament_name]["id"]
         updateExistingCalendar(service, calendar_id, matches)
 
-        if id == 10:
-            break
-        id += 1
+        # Process every entry from the remote data. This is used to limit how many entries are processed
+        # during development. If --no-limit is not specified, then only the first 10 will be processed
+        if not args.no_limit:
+            if id == 10:
+                break
+            id += 1
 
     print("Generating calendar URLs.")
     generateCalendarUrls(service)
@@ -302,6 +305,7 @@ def main(args):
 def setupArgs() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(parents=[tools.argparser])
     parser.add_argument("--fetch", action="store_true")
+    parser.add_argument("--no-limit", action="store_true")
     return parser
 
 
