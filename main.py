@@ -8,7 +8,7 @@ import requests.auth
 from oauth2client import tools
 
 import gcalendar
-from apikeys import *
+from apikeys import GIST_API_KEY, GIST_FILE_ID
 from common.match import Match
 # from sportradar import download, load
 from livescore_in import download, load
@@ -46,12 +46,14 @@ def updateEvent(service, calendar_id: str, match: Match, existing_event: {}):
     # they remove the 2 ways to specify timezone in the standard ISO format
     # the reason we can remove it is that both are guaranteed to be UTC
     if existing_event["start"]["dateTime"][:-1] != match_time_start[:match_time_start.rfind("+")]:
+        old_start = existing_event["start"]["dateTime"]
         existing_event["start"] = {"dateTime": match.time.start.isoformat()}
         existing_event["end"] = {"dateTime": match.time.end.isoformat()}
         existing_event["colorId"] = match.color
         update_result = service.events().update(calendarId=calendar_id, eventId=existing_event["id"],
                                                 body=existing_event).execute()
-        print("Updated event for match:", update_result["summary"])
+        print("Updated event for match:", update_result["summary"], "old start:",
+              old_start, "new start:", update_result["start"]["dateTime"])
     else:
         print("Skipping match as it hasn't changed:", existing_event["summary"])
 
@@ -127,8 +129,18 @@ def generate_calendar_urls(service):
         - After clicking it there should be `From Internet`
 1. Paste link and click add/import.
 <hr/>
+#### Notes:
+- The ICAL will be refreshed whenever your calendar application decides to query for changes. This can differ. On Google it changes are quickly reflected.
+- This is still being tested and something will probably fail. 
+<hr/>
+#### Calendar Event Colours (in Google)
+- Cancelled is Graphite
+- Finished is Lavender
+- Not started is Basil
+<hr/>
 """
     ]
+    # TODO explain calendar colors
     for calendar in calendarsList:
         # remove primary calendar, and #contacts and #holidays
         if "@gmail" not in calendar["id"] and "#" not in calendar["id"]:
@@ -154,8 +166,8 @@ def generate_calendar_urls(service):
 
     }
     print("Uploading calendar urls to GIST.")
-    gistResponse = requests.patch(f'https://api.github.com/gists/{gist_file_id}',
-                                  auth=requests.auth.HTTPBasicAuth("DTasev", gist_api_key),
+    gistResponse = requests.patch(f'https://api.github.com/gists/{GIST_FILE_ID}',
+                                  auth=requests.auth.HTTPBasicAuth("DTasev", GIST_API_KEY),
                                   data=json.dumps(gist))
     print(gistResponse)
 
