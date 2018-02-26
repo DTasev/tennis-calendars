@@ -63,7 +63,7 @@ def update_event(service, calendar_id: str, match: Match, existing_event: {}):
         update_result = service.events().update(calendarId=calendar_id, eventId=existing_event["id"],
                                                 body=existing_event).execute()
         print("Updated event for match:", update_result["summary"], "old start:",
-              old_start, "new start:", update_result["start"]["dateTime"], "old_color:", old_color, "new color:", match.color)
+              old_start, "new start:", update_result["start"]["dateTime"], "old color:", old_color, "new color:", match.color)
     else:
         print("Skipping match as it hasn't changed:", existing_event["summary"])
 
