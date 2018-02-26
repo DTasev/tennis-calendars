@@ -5,15 +5,14 @@ from typing import List
 
 import requests
 import requests.auth
-import sys
 from oauth2client import tools
 
 import gcalendar
 from apikeys import *
 from common.match import Match
-from settings import CALENDAR_URLS_FILENAME, CALENDAR_EMBED_BASE_URL, CALENDAR_ICAL_BASE_URL, CALENDAR_IFRAME_BASE
 # from sportradar import download, load
 from livescore_in import download, load
+from settings import CALENDAR_URLS_FILENAME, CALENDAR_EMBED_BASE_URL, CALENDAR_ICAL_BASE_URL, CALENDAR_IFRAME_BASE
 
 today = datetime.datetime.now().strftime("%Y-%m-%d")
 
