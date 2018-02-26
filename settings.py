@@ -17,11 +17,12 @@ LIVESCORE_IGNORE_TOURNAMENTS = [
 ]
 
 # Settings for Selenium
-CHROME_BINARY_LOCATION = "C:/Program Files (x86)/Google/Chrome Dev/Application/chrome.exe"
 
 if sys.platform.startswith("win"):
+    CHROME_BINARY_LOCATION = "C:/Program Files (x86)/Google/Chrome Dev/Application/chrome.exe"
     CHROMEDRIVER_LOCATION = "./livescore.in/chromedriver.exe"
 elif sys.platform.startswith("linux"):
+    CHROME_BINARY_LOCATION = "/usr/bin/google-chrome"
     CHROMEDRIVER_LOCATION = "./livescore.in/chromedriver"
 else:
     raise SystemError("The system that the script is being executed on is not supported!")
