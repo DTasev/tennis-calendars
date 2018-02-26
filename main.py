@@ -39,13 +39,22 @@ def createEvent(service, calendar_id: str, match: Match):
     print("Created event for match:", created_event["summary"])
 
 
-def updateEvent(service, calendar_id: str, match: Match, existing_event: {}):
-    match_time_start = match.time.start.isoformat()
+def different_times(old, new):
     # the -1 on the existing event returns the datetime string without the Z at the end
     # the rfind on match_time_start returns the datetime string woithout the +00:00 a the end
     # they remove the 2 ways to specify timezone in the standard ISO format
     # the reason we can remove it is that both are guaranteed to be UTC
-    if existing_event["start"]["dateTime"][:-1] != match_time_start[:match_time_start.rfind("+")]:
+    return old["start"]["dateTime"][:-1] != new[:new.rfind("+")]
+
+
+def different_colors(old, new):
+    return old["colorId"] != new
+
+
+def update_event(service, calendar_id: str, match: Match, existing_event: {}):
+    match_time_start = match.time.start.isoformat()
+
+    if different_times(existing_event, match_time_start) or different_colors(existing_event, match.color):
         old_start = existing_event["start"]["dateTime"]
         existing_event["start"] = {"dateTime": match.time.start.isoformat()}
         existing_event["end"] = {"dateTime": match.time.end.isoformat()}
@@ -82,7 +91,7 @@ def update_calendar_events(service, calendar_id, matches: List[Match]):
             createEvent(service, calendar_id, match)
         else:
             matchEvent = matchEvent[0]
-            updateEvent(service, calendar_id, match, matchEvent)
+            update_event(service, calendar_id, match, matchEvent)
 
 
 def create_calendar(service, tournament_name):
@@ -128,18 +137,22 @@ def generate_calendar_urls(service):
         - After clicking it there should be `From Internet`
 1. Paste link and click add/import.
 <hr/>
-#### Notes:
+
+# Notes:
 - The ICAL will be refreshed whenever your calendar application decides to query for changes. This can differ. On Google it changes are quickly reflected.
-- This is still being tested and something will probably fail. 
+- This is still being tested and something will probably fail.
+
 <hr/>
-#### Calendar Event Colours (in Google)
-- Cancelled is Graphite
-- Finished is Lavender
-- Not started is Basil
+
+# Calendar Event Colours (in Google)
+- Cancelled is Graphite (gray)
+- Finished is Lavender (purple-ish)
+- Not started is Sage (blue-ish green-ish)
+- Live/started is Basil (green)
+
 <hr/>
 """
     ]
-    # TODO explain calendar colors
     for calendar in calendarsList:
         # remove primary calendar, and #contacts and #holidays
         if "@gmail" not in calendar["id"] and "#" not in calendar["id"]:
