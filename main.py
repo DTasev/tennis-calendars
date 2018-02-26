@@ -1,120 +1,21 @@
 import argparse
 import datetime
-import http.client
 import json
 from typing import List
 
 import requests
 import requests.auth
+import sys
 from oauth2client import tools
 
 import gcalendar
 from apikeys import *
+from common.match import Match
+from settings import CALENDAR_URLS_FILENAME, CALENDAR_EMBED_BASE_URL, CALENDAR_ICAL_BASE_URL, CALENDAR_IFRAME_BASE
+# from sportradar import download, load
+from livescore_in import download, load
 
 today = datetime.datetime.now().strftime("%Y-%m-%d")
-EVENT_DURATION_MINUTES = 90
-
-CALENDAR_IFRAME_BASE = '"<iframe src="https://calendar.google.com/calendar/embed?src={0}" style="border: 0" width="800" height="600" frameborder="0" scrolling="no"></iframe>"'
-CALENDAR_EMBED_BASE_URL = "https://calendar.google.com/calendar/embed?src={0}"
-CALENDAR_ICAL_BASE_URL = "https://calendar.google.com/calendar/ical/{0}/public/basic.ics"
-CALENDAR_URLS_FILENAME = "calendarUrls.md"
-
-IGNORE_TOURNAMENTS = [
-    "ITF",
-    "ATP Challenger",
-    "WTA 125K Indian Wells"
-]
-
-def getToday():
-    conn = http.client.HTTPSConnection("api.sportradar.us")
-    conn.request(
-        "GET", f"/tennis-t2/en/schedules/{today}/schedule.json?api_key={sportradar_api_key}")
-
-    res = conn.getresponse()
-    data = res.read()
-
-    with open(f"cache/{today}.json", 'wb') as f:
-        f.write(data)
-
-
-class MatchTimes:
-    def __init__(self, start: datetime.datetime, end: datetime.datetime):
-        self.start = start
-        self.end = end
-
-
-class MatchColors:
-    # These contain the Google Calendar Color IDs, which can be seen with
-    # colors = service.colors().get().execute()
-    CANCELLED = "8"  # Graphite
-    # I have no idea what closed means, but it looks like it's when the match ends, however there is also "ended" status
-    CLOSED = "3"  # Lavender
-    NOT_STARTED = "10"  # Basil
-    # Not updating often enough to care about live matches
-    # LIVE = "2" # Sage
-
-
-class Match:
-
-    def fix_round(self, round: str) -> str:
-        # replace any underscores for rounds - "round_of_10" becomes "round of 10"
-        # and then capitalise the letters
-        return round.replace("_", " ").capitalize()
-
-    def get_color(self, status) -> str:
-        if status == "cancelled":
-            return MatchColors.CANCELLED
-        elif status == "closed" or status == "ended":
-            return MatchColors.CLOSED
-        elif status == "not_started" or status == "live":
-            return MatchColors.NOT_STARTED
-        else:
-            raise ValueError("We can't handle the status of this match! Problematic state: " + status)
-
-    def __init__(self, player_one: str, player_two: str, round: str, status: str, time: datetime.datetime):
-        self.player_one = player_one
-        self.player_two = player_two
-        self.round = self.fix_round(round)
-        self.status = status
-        self.color = self.get_color(status)
-        self.time = MatchTimes(time, time + datetime.timedelta(minutes=EVENT_DURATION_MINUTES))
-        self.name = f"{self.round} - {self.player_one} vs {self.player_two}"
-
-    def __str__(self):
-        return f"{self.player_one} versus {self.player_two} at {self.time.start.isoformat()}"
-
-
-def group_by_tournament(events: {}, match):
-    """
-    Groups together all the matches for each event. 
-    The matches are grouped per event.
-    :param events: The container for the matches for each tournament
-    :param match: The data for the current match
-    """
-    match_tournament_name = match["tournament"]["name"]
-
-    # if the tournament is ignored it is not added in the events list
-    for ignored in IGNORE_TOURNAMENTS:
-        if ignored in match_tournament_name:
-            return
-    # if there is no previous matches for the event, initialise the list
-    if match_tournament_name not in events:
-        events[match_tournament_name] = []
-
-    # remove the colon in the timezone, as python's %z doesn't support having a colon there
-    timezone_colon = match["scheduled"].rfind(":")
-    time = match["scheduled"][:timezone_colon] + match["scheduled"][timezone_colon + 1:]
-    time = datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S%z")
-
-    round = match["tournament_round"]["name"]
-    status = match["status"]
-
-    events[match_tournament_name].append(
-        Match(player_one=match["competitors"][0]["name"],
-              player_two=match["competitors"][1]["name"],
-              round=round,
-              status=status,
-              time=time))
 
 
 def createEvent(service, calendar_id: str, match: Match):
@@ -156,7 +57,7 @@ def updateEvent(service, calendar_id: str, match: Match, existing_event: {}):
         print("Skipping match as it hasn't changed:", existing_event["summary"])
 
 
-def updateExistingCalendar(service, calendar_id, matches: List[Match]):
+def update_calendar_events(service, calendar_id, matches: List[Match]):
     today = datetime.datetime.today()
     # used to query events only for today
     midnight = datetime.datetime(today.year, today.month, today.day, 0, 0)
@@ -184,7 +85,7 @@ def updateExistingCalendar(service, calendar_id, matches: List[Match]):
         return
 
 
-def createCalendar(service, tournament_name):
+def create_calendar(service, tournament_name):
     calendarBody = {
         "summary": tournament_name
     }
@@ -202,7 +103,7 @@ def createCalendar(service, tournament_name):
     return createdCalendar["id"]
 
 
-def generateCalendarUrls(service):
+def generate_calendar_urls(service):
     calendarsListResult = service.calendarList().list().execute()
     calendarsList = calendarsListResult.get('items', None)
     fileData = [
@@ -262,8 +163,7 @@ def generateCalendarUrls(service):
 
 def main(args):
     if args.fetch:
-        getToday()
-        print("Downloaded today's matches data from Sportradar.")
+        download(today)
 
     # get calendars
     service = gcalendar.auth(args)
@@ -277,15 +177,8 @@ def main(args):
         calendars[c["summary"]] = {"id": c["id"]}
 
     print("Calendars moved to dictionary.")
-    # get tennis matches and group_by_tournament by tournament
-    data = json.load(open(f"cache/{today}.json", 'rb'))
-    print("Loaded data from cache.")
 
-    tournament = {}
-    # group_by_tournament all the matches by event
-    for match in data["sport_events"]:
-        group_by_tournament(tournament, match)
-    print("Grouped matches by tournament.")
+    tournament = load(today)
 
     id = 0
     # for every tournament
@@ -294,11 +187,11 @@ def main(args):
         # check if there is a calendar for the tournament
         if tournament_name not in calendars:
             print("Calendar not found, creating a new one...")
-            calendar_id = createCalendar(service, tournament_name)
+            calendar_id = create_calendar(service, tournament_name)
         else:
             print("Calendar already exists.")
             calendar_id = calendars[tournament_name]["id"]
-        updateExistingCalendar(service, calendar_id, matches)
+        update_calendar_events(service, calendar_id, matches)
 
         # Process every entry from the remote data. This is used to limit how many entries are processed
         # during development. If --no-limit is not specified, then only the first 10 will be processed
@@ -308,17 +201,20 @@ def main(args):
             id += 1
 
     print("Generating calendar URLs.")
-    generateCalendarUrls(service)
+    generate_calendar_urls(service)
 
 
-def setupArgs() -> argparse.ArgumentParser:
+def setup_args() -> argparse.ArgumentParser:
+    # add arguments for google authentication
     parser = argparse.ArgumentParser(parents=[tools.argparser])
+
+    # additional arguments for the package
     parser.add_argument("--fetch", action="store_true")
     parser.add_argument("--no-limit", action="store_true")
     return parser
 
 
 if __name__ == "__main__":
-    parser = setupArgs()
+    parser = setup_args()
     args = parser.parse_args()
     main(args)
