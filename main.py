@@ -17,7 +17,7 @@ from settings import CALENDAR_URLS_FILENAME, CALENDAR_EMBED_BASE_URL, CALENDAR_I
 today = datetime.datetime.now().strftime("%Y-%m-%d")
 
 
-def createEvent(service, calendar_id: str, match: Match):
+def create_event(service, calendar_id: str, match: Match):
     # use 12-hour format so that Google can correctly create events throughout the night
     # otherwise it assumes things like 02:45 (2 after midnight in 24-hour clock) to be 2 in the afternoon,
     # as it is more likely that people will create events for the day than the night
@@ -56,13 +56,14 @@ def update_event(service, calendar_id: str, match: Match, existing_event: {}):
 
     if different_times(existing_event, match_time_start) or different_colors(existing_event, match.color):
         old_start = existing_event["start"]["dateTime"]
+        old_color = existing_event["colorId"]
         existing_event["start"] = {"dateTime": match.time.start.isoformat()}
         existing_event["end"] = {"dateTime": match.time.end.isoformat()}
         existing_event["colorId"] = match.color
         update_result = service.events().update(calendarId=calendar_id, eventId=existing_event["id"],
                                                 body=existing_event).execute()
         print("Updated event for match:", update_result["summary"], "old start:",
-              old_start, "new start:", update_result["start"]["dateTime"])
+              old_start, "new start:", update_result["start"]["dateTime"], "old_color:", old_color, "new color:", match.color)
     else:
         print("Skipping match as it hasn't changed:", existing_event["summary"])
 
@@ -88,7 +89,7 @@ def update_calendar_events(service, calendar_id, matches: List[Match]):
             raise ValueError("There is more than one event with matching names, and there should only be one!")
 
         if len(matchEvent) == 0:
-            createEvent(service, calendar_id, match)
+            create_event(service, calendar_id, match)
         else:
             matchEvent = matchEvent[0]
             update_event(service, calendar_id, match, matchEvent)
