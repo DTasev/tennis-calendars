@@ -70,6 +70,7 @@ def group_by_tournament(datetime_today, tournament, tournament_data):
     # if the tournament is ignored it is not added in the events list
     for ignored in LIVESCORE_IGNORE_TOURNAMENTS:
         if ignored in tournament_name:
+            print("Ignored tournament:", tournament_name)
             return
 
     # create entry for each tournament
@@ -88,11 +89,11 @@ def group_by_tournament(datetime_today, tournament, tournament_data):
 
         player_two = match[1].find('span', attrs={'class': 'padl'}).text
 
-        # convert the 24h time to be a datetime object, subtract 1 hour as the livescore table is not UTC
-        time = datetime.datetime.strptime(time_str, "%H:%M") - datetime.timedelta(hours=1)
-        # construct the whole datetime for the day
+        # convert the 24h time to be a datetime object
+        time = datetime.datetime.strptime(time_str, "%H:%M")
+        # construct the whole datetime for the day, subtract 1 hour as the livescore table is not UTC
         datetime_full = datetime.datetime(datetime_today.year, datetime_today.month, datetime_today.day,
-                                          time.hour, time.minute, tzinfo=datetime.timezone.utc)
+                                          time.hour, time.minute, tzinfo=datetime.timezone.utc) - datetime.timedelta(hours=1)
 
         tournament_data[tournament_name].append(Match(
             player_one=player_one,

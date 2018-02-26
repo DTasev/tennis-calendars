@@ -83,7 +83,6 @@ def update_calendar_events(service, calendar_id, matches: List[Match]):
         else:
             matchEvent = matchEvent[0]
             updateEvent(service, calendar_id, match, matchEvent)
-        return
 
 
 def create_calendar(service, tournament_name):
