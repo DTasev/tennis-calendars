@@ -1,12 +1,10 @@
 import datetime
 
-EVENT_DURATION_MINUTES = 90
 
 
 class MatchTimes:
-    def __init__(self, start: datetime.datetime, end: datetime.datetime):
+    def __init__(self, start: datetime.datetime):
         self.start = start
-        self.end = end
 
 
 class MatchColors:
@@ -14,11 +12,11 @@ class MatchColors:
     # colors = service.colors().get().execute()
     CANCELLED = "8"  # Graphite
     # I have no idea what closed means, but it looks like it's when the match ends, however there is also "ended" status
-    CLOSED = "3"  # Lavender
+    CLOSED = "3"  # Grape
     LIVE = "10"  # Basil
     # Not updating often enough to care about live matches
     NOT_STARTED = "2"  # Sage
-    INTERRUPTED = "1" #
+    INTERRUPTED = "1"  # Lavender
 
 
 class Match:
@@ -42,13 +40,16 @@ class Match:
         else:
             raise ValueError("We can't handle the status of this match! Problematic state: `" + status + "`")
 
+    def is_still_going_on(self) -> bool:
+        return self.status == "live" or "S" in self.status or self.status == "Int"
+
     def __init__(self, player_one: str, player_two: str, round: str, status: str, time: datetime.datetime):
         self.player_one = player_one
         self.player_two = player_two
         self.round = self.fix_round(round)
         self.status = status
         self.color = self.get_color(status)
-        self.time = MatchTimes(time, time + datetime.timedelta(minutes=EVENT_DURATION_MINUTES))
+        self.time = MatchTimes(time)
         self.name = f"{self.player_one} vs {self.player_two}"
 
     def __str__(self):

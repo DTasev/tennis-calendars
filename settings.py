@@ -28,3 +28,5 @@ else:
     raise SystemError("The system that the script is being executed on is not supported!")
 
 LIVESCORE_URL = "http://www.livescore.in/free/444741/"
+MATCH_EXTEND_MINUTES = 30
+MATCH_DEFAULT_DURATION_MINUTES = 90

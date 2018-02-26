@@ -12,7 +12,8 @@ from apikeys import GIST_API_KEY, GIST_FILE_ID
 from common.match import Match
 # from sportradar import download, load
 from livescore_in import download, load
-from settings import CALENDAR_URLS_FILENAME, CALENDAR_EMBED_BASE_URL, CALENDAR_ICAL_BASE_URL, CALENDAR_IFRAME_BASE
+from settings import CALENDAR_URLS_FILENAME, CALENDAR_EMBED_BASE_URL, CALENDAR_ICAL_BASE_URL, CALENDAR_IFRAME_BASE, \
+    MATCH_EXTEND_MINUTES, MATCH_DEFAULT_DURATION_MINUTES
 
 today = datetime.datetime.now().strftime("%Y-%m-%d")
 
@@ -21,13 +22,18 @@ def create_event(service, calendar_id: str, match: Match):
     # use 12-hour format so that Google can correctly create events throughout the night
     # otherwise it assumes things like 02:45 (2 after midnight in 24-hour clock) to be 2 in the afternoon,
     # as it is more likely that people will create events for the day than the night
+    match_time_end = match.time.start + datetime.timedelta(minutes=MATCH_DEFAULT_DURATION_MINUTES)
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    if match_time_end < now:
+        match_time_end = now + datetime.timedelta(minutes=MATCH_EXTEND_MINUTES)
+
     event = {
         "summary": match.name,
         "start": {
             "dateTime": match.time.start.isoformat()
         },
         "end": {
-            "dateTime": match.time.end.isoformat()
+            "dateTime": match_time_end.isoformat()
         },
         "maxAttendees": "100",
         "guestsCanInviteOthers": "true",
@@ -39,12 +45,20 @@ def create_event(service, calendar_id: str, match: Match):
     print("Created event for match:", created_event["summary"])
 
 
-def different_times(old, new):
+def different_start_times(old, new):
     # the -1 on the existing event returns the datetime string without the Z at the end
     # the rfind on match_time_start returns the datetime string woithout the +00:00 a the end
     # they remove the 2 ways to specify timezone in the standard ISO format
     # the reason we can remove it is that both are guaranteed to be UTC
     return old["start"]["dateTime"][:-1] != new[:new.rfind("+")]
+
+
+def different_end_times(old, new):
+    # the -1 on the existing event returns the datetime string without the Z at the end
+    # the rfind on match_time_start returns the datetime string woithout the +00:00 a the end
+    # they remove the 2 ways to specify timezone in the standard ISO format
+    # the reason we can remove it is that both are guaranteed to be UTC
+    return old["end"]["dateTime"][:-1] != new[:new.rfind("+")]
 
 
 def different_colors(old, new):
@@ -53,17 +67,35 @@ def different_colors(old, new):
 
 def update_event(service, calendar_id: str, match: Match, existing_event: {}):
     match_time_start = match.time.start.isoformat()
+    event_time_end = datetime.datetime.strptime(existing_event["end"]["dateTime"].replace("Z", "+0000"),
+                                                "%Y-%m-%dT%H:%M:%S%z")
 
-    if different_times(existing_event, match_time_start) or different_colors(existing_event, match.color):
+    # if the match is live, but the end of the event in the calendar has passed, extend the end
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    if match.is_still_going_on() and event_time_end < now:
+        # move the end forward
+        print("Moving time forward for match:", match.name)
+        event_time_end = now + datetime.timedelta(minutes=MATCH_EXTEND_MINUTES)
+
+    event_time_end = event_time_end.isoformat()
+
+    if different_start_times(existing_event, match_time_start) \
+            or different_end_times(existing_event, event_time_end) \
+            or different_colors(existing_event, match.color):
+
         old_start = existing_event["start"]["dateTime"]
+        old_end = existing_event["end"]["dateTime"]
         old_color = existing_event["colorId"]
-        existing_event["start"] = {"dateTime": match.time.start.isoformat()}
-        existing_event["end"] = {"dateTime": match.time.end.isoformat()}
+
+        existing_event["start"] = {"dateTime": match_time_start}
+        existing_event["end"] = {"dateTime": event_time_end}
         existing_event["colorId"] = match.color
         update_result = service.events().update(calendarId=calendar_id, eventId=existing_event["id"],
                                                 body=existing_event).execute()
         print("Updated event for match:", update_result["summary"], "old start:",
-              old_start, "new start:", update_result["start"]["dateTime"], "old color:", old_color, "new color:", match.color)
+              old_start, "new start:", update_result["start"]["dateTime"], "old end:", old_end, "new end:",
+              update_result["end"]["dateTime"], "old color:", old_color, "new color:",
+              match.color)
     else:
         print("Skipping match as it hasn't changed:", existing_event["summary"])
 
