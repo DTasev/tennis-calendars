@@ -147,9 +147,10 @@ def generate_calendar_urls(service):
 
 ### Calendar Event Colours (in Google)
 - Cancelled is Graphite (gray)
-- Finished is Lavender (purple-ish)
+- Finished is Grape (purple)
 - Not started is Sage (blue-ish green-ish)
 - Live/started is Basil (green)
+- Interrupted is Lavender
 
 <hr/>
 """

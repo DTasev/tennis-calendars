@@ -18,6 +18,7 @@ class MatchColors:
     LIVE = "10"  # Basil
     # Not updating often enough to care about live matches
     NOT_STARTED = "2"  # Sage
+    INTERRUPTED = "1" #
 
 
 class Match:
@@ -36,6 +37,8 @@ class Match:
             return MatchColors.LIVE
         elif status == "not_started" or status == "" or status == "FRO":
             return MatchColors.NOT_STARTED
+        elif status == "Int":
+            return MatchColors.INTERRUPTED
         else:
             raise ValueError("We can't handle the status of this match! Problematic state: `" + status + "`")
 
