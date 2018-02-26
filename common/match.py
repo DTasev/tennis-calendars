@@ -15,9 +15,9 @@ class MatchColors:
     CANCELLED = "8"  # Graphite
     # I have no idea what closed means, but it looks like it's when the match ends, however there is also "ended" status
     CLOSED = "3"  # Lavender
-    NOT_STARTED = "10"  # Basil
+    LIVE = "10"  # Basil
     # Not updating often enough to care about live matches
-    # LIVE = "2" # Sage
+    NOT_STARTED = "2"  # Sage
 
 
 class Match:
@@ -32,7 +32,9 @@ class Match:
             return MatchColors.CANCELLED
         elif status == "closed" or status == "ended" or status == "Fin":
             return MatchColors.CLOSED
-        elif status == "not_started" or status == "live" or "S" in status or status=="" or status == "FRO":
+        elif status == "live" or "S" in status:
+            return MatchColors.LIVE
+        elif status == "not_started" or status == "" or status == "FRO":
             return MatchColors.NOT_STARTED
         else:
             raise ValueError("We can't handle the status of this match! Problematic state: `" + status + "`")
