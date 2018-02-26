@@ -24,7 +24,7 @@ def create_event(service, calendar_id: str, match: Match):
     # as it is more likely that people will create events for the day than the night
     match_time_end = match.time.start + datetime.timedelta(minutes=MATCH_DEFAULT_DURATION_MINUTES)
     now = datetime.datetime.now(tz=datetime.timezone.utc)
-    if match_time_end < now:
+    if match.is_still_going_on() and match_time_end < now:
         match_time_end = now + datetime.timedelta(minutes=MATCH_EXTEND_MINUTES)
 
     event = {
