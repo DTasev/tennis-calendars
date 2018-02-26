@@ -37,7 +37,7 @@ def download(today) -> str:
     browser.get(LIVESCORE_URL)
     match_table = get_table(browser)
     browser.quit()
-    print(match_table)
+    
     with open(f"cache/{today}.html", 'w') as f:
         f.write(match_table)
     return match_table
