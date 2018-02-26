@@ -138,13 +138,13 @@ def generate_calendar_urls(service):
 1. Paste link and click add/import.
 <hr/>
 
-# Notes:
+### Notes:
 - The ICAL will be refreshed whenever your calendar application decides to query for changes. This can differ. On Google it changes are quickly reflected.
 - This is still being tested and something will probably fail.
 
 <hr/>
 
-# Calendar Event Colours (in Google)
+### Calendar Event Colours (in Google)
 - Cancelled is Graphite (gray)
 - Finished is Lavender (purple-ish)
 - Not started is Sage (blue-ish green-ish)
