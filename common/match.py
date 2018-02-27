@@ -1,7 +1,6 @@
 import datetime
 
 
-
 class MatchTimes:
     def __init__(self, start: datetime.datetime):
         self.start = start
@@ -29,7 +28,7 @@ class Match:
     def get_color(self, status) -> str:
         if status == "cancelled" or status == "Canc":
             return MatchColors.CANCELLED
-        elif status == "closed" or status == "ended" or status == "Fin":
+        elif status == "closed" or status == "ended" or status == "Fin" or status == "Retired":
             return MatchColors.CLOSED
         elif status == "live" or "S" in status:
             return MatchColors.LIVE
