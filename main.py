@@ -77,6 +77,9 @@ def update_event(service, calendar_id: str, match: Match, existing_event: {}):
         print("Moving time forward for match:", match.name)
         event_time_end = now + datetime.timedelta(minutes=MATCH_EXTEND_MINUTES)
 
+    if event_time_end < match.time.start:
+        event_time_end = now + datetime.timedelta(minutes=MATCH_EXTEND_MINUTES)
+
     event_time_end = event_time_end.isoformat()
 
     if different_start_times(existing_event, match_time_start) \
