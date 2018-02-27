@@ -39,6 +39,18 @@ class Match:
         else:
             raise ValueError("We can't handle the status of this match! Problematic state: `" + status + "`")
 
+    def status_from_color(self, color)->str:
+        if color == MatchColors.CANCELLED:
+            return "Cancelled"
+        elif color == MatchColors.CLOSED:
+            return "Finished"
+        elif color == MatchColors.LIVE:
+            return "Live"
+        elif color == MatchColors.NOT_STARTED:
+            return "Not Started"
+        elif color == MatchColors.INTERRUPTED:
+            return "Interrupted"
+
     def is_still_going(self) -> bool:
         return self.status == "live" or "S" in self.status or self.status == "Int"
 

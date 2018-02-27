@@ -69,7 +69,7 @@ def different_colors(old, new):
 
 
 def show_if_different(word: str, old: str, new: str) -> str:
-    return f"\t\told {word}: {old}, new {word}: {new}\n" if old != new else ""
+    return f"\t\told {word}: {old}\n\t\tnew {word}: {new}\n" if old != new else ""
 
 
 def update_event(service, calendar_id: str, match: Match, existing_event: {}):
@@ -114,7 +114,7 @@ def update_event(service, calendar_id: str, match: Match, existing_event: {}):
         print("\tUpdated event:\n",
               show_if_different("start", old_start, update_result["start"]["dateTime"]),
               show_if_different("end", old_end, update_result["end"]["dateTime"]),
-              show_if_different("color", old_color, match.color), end="")
+              show_if_different("status", match.status_from_color(old_color), match.status_from_color(match.color)), end="")
     else:
         print("\tNo change.")
 
