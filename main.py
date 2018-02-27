@@ -19,11 +19,14 @@ today = datetime.datetime.now().strftime("%Y-%m-%d")
 
 
 def create_event(service, calendar_id: str, match: Match):
-    # use 12-hour format so that Google can correctly create events throughout the night
-    # otherwise it assumes things like 02:45 (2 after midnight in 24-hour clock) to be 2 in the afternoon,
-    # as it is more likely that people will create events for the day than the night
+    # create the default duration for the tennis match
     match_time_end = match.time.start + datetime.timedelta(minutes=MATCH_DEFAULT_DURATION_MINUTES)
     now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    # if the tennis match is still going on, but there is no existing event, then the computed end time might already have passed
+    # e.g. the match has been going on 1h 40 mins, but the default duration is 1h 30 mins. The computed end time will show
+    # that the match has ended 10 minutes ago, which is wrong. This checks for that case and makes sure that
+    # if the initial match end time is less than NOW but the match is still GOIGN ON, then the end time is extended
     if match.is_still_going_on() and match_time_end < now:
         match_time_end = now + datetime.timedelta(minutes=MATCH_EXTEND_MINUTES)
 
@@ -65,19 +68,29 @@ def different_colors(old, new):
     return old["colorId"] != new
 
 
+def show_if_different(word: str, old: str, new: str) -> str:
+    return f"old {word}: {old}, new {word}: {new}" if old != new else ""
+
+
 def update_event(service, calendar_id: str, match: Match, existing_event: {}):
     match_time_start = match.time.start.isoformat()
     event_time_end = datetime.datetime.strptime(existing_event["end"]["dateTime"].replace("Z", "+0000"),
                                                 "%Y-%m-%dT%H:%M:%S%z")
 
-    # if the match is live, but the end of the event in the calendar has passed, extend the end
+    # If the event's end is less than the default match duration, then the end will be fixed
+    # this can happen if the match time is moved N minutes forward, the end time also needs to be adjusted
+    # NOTE this will only adjust the end time FORWARD. If the match is moved backwards the end time will NOT be
+    # changed. This might cause an issue in the future, but for now it should be okay
+    if event_time_end < match.time.start + datetime.timedelta(minutes=MATCH_DEFAULT_DURATION_MINUTES):
+        print("Adjusting end time for match:", match.name)
+        event_time_end = match.time.start + datetime.timedelta(minutes=MATCH_DEFAULT_DURATION_MINUTES)
+
+    # if the match is live, but the end of the event in the calendar has passed, extend the end of the event
+    # this will show in the calendar that the match hasn't yet ended
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     if match.is_still_going_on() and event_time_end < now:
         # move the end forward
-        print("Moving time forward for match:", match.name)
-        event_time_end = now + datetime.timedelta(minutes=MATCH_EXTEND_MINUTES)
-
-    if event_time_end < match.time.start:
+        print("Extending end time for match as it hasn't ended:", match.name)
         event_time_end = now + datetime.timedelta(minutes=MATCH_EXTEND_MINUTES)
 
     event_time_end = event_time_end.isoformat()
@@ -95,10 +108,11 @@ def update_event(service, calendar_id: str, match: Match, existing_event: {}):
         existing_event["colorId"] = match.color
         update_result = service.events().update(calendarId=calendar_id, eventId=existing_event["id"],
                                                 body=existing_event).execute()
-        print("Updated event for match:", update_result["summary"], "old start:",
-              old_start, "new start:", update_result["start"]["dateTime"], "old end:", old_end, "new end:",
-              update_result["end"]["dateTime"], "old color:", old_color, "new color:",
-              match.color)
+
+        print("Updated event for match:", update_result["summary"],
+              show_if_different("start", old_start, update_result["start"]["dateTime"]),
+              show_if_different("end", old_end, update_result["end"]["dateTime"]),
+              show_if_different("color", old_color, match.color))
     else:
         print("Skipping match as it hasn't changed:", existing_event["summary"])
 
