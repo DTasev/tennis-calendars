@@ -45,7 +45,7 @@ def create_event(service, calendar_id: str, match: Match):
         "colorId": match.color
     }
     created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
-    print("Created event for match:", created_event["summary"])
+    print("Created event.")
 
 
 def different_start_times(old, new):
@@ -72,19 +72,23 @@ def show_if_different(word: str, old: str, new: str) -> str:
     return f"\t\told {word}: {old}\n\t\tnew {word}: {new}\n" if old != new else ""
 
 
+def from_google_date_to_datetime(google_date: str) -> datetime.datetime:
+    return datetime.datetime.strptime(google_date.replace("Z", "+0000"),
+                                      "%Y-%m-%dT%H:%M:%S%z")
+
+
 def update_event(service, calendar_id: str, match: Match, existing_event: {}):
-    print("Match: ", match.name)
     match_time_start = match.time.start.isoformat()
-    event_time_end = datetime.datetime.strptime(existing_event["end"]["dateTime"].replace("Z", "+0000"),
-                                                "%Y-%m-%dT%H:%M:%S%z")
+    event_time_end = from_google_date_to_datetime(existing_event["end"]["dateTime"])
 
     # If the event's end is less than the default match duration, then the end will be fixed
     # this can happen if the match time is moved N minutes forward, the end time also needs to be adjusted
     # NOTE this will only adjust the end time FORWARD. If the match is moved backwards the end time will NOT be
     # changed. Adjusting the time when the match is moved backwards will cause an issue with the event end adjustment!
-    if event_time_end < match.time.start + datetime.timedelta(minutes=MATCH_DEFAULT_DURATION_MINUTES):
+    expected_duration = match.time.start + datetime.timedelta(minutes=MATCH_DEFAULT_DURATION_MINUTES)
+    if event_time_end < expected_duration:
         print("\tAdjusting end time.")
-        event_time_end = match.time.start + datetime.timedelta(minutes=MATCH_DEFAULT_DURATION_MINUTES)
+        event_time_end = expected_duration
 
     # if the match is live, but the end of the event in the calendar has passed, extend the end of the event
     # this will show in the calendar that the match hasn't yet ended
@@ -119,6 +123,34 @@ def update_event(service, calendar_id: str, match: Match, existing_event: {}):
         print("\tNo change.")
 
 
+def update_finished_event(service, calendar_id: str, match: Match, existing_event: {}):
+    event_time_start = from_google_date_to_datetime(existing_event["start"]["dateTime"])
+    event_time_end = from_google_date_to_datetime(existing_event["end"]["dateTime"])
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    # if the event has finished, but it's end time is after NOW, then change it to now
+    # but make sure the event has actually started first, to avoid a Google Calendar event error
+    if event_time_end > now and event_time_start < now:
+        # convert the end time to isoformat at the same time as assigning
+        event_time_end = now.isoformat()
+        print("\tNew event end:", event_time_end, "event time start:",
+              existing_event["start"]["dateTime"], "match status:", match._status)
+        old_end = existing_event["end"]["dateTime"]
+        old_color = existing_event["colorId"]
+
+        existing_event["end"] = {"dateTime": event_time_end}
+        existing_event["colorId"] = match.color
+        update_result = service.events().update(calendarId=calendar_id, eventId=existing_event["id"],
+                                                body=existing_event).execute()
+
+        # the end="" removes the new line at the end
+        print("\tUpdated finished event:\n",
+              show_if_different("end", old_end, update_result["end"]["dateTime"]),
+              show_if_different("status", match.status_from_color(old_color), match.status_from_color(match.color)), end="")
+    else:
+        print("\tFinished. No changes.")
+
+
 def update_calendar_events(service, calendar_id, matches: List[Match]):
     today = datetime.datetime.today()
     # used to query events only for today
@@ -139,11 +171,18 @@ def update_calendar_events(service, calendar_id, matches: List[Match]):
         if len(matchEvent) > 1:
             raise ValueError("There is more than one event with matching names, and there should only be one!")
 
+        print("Match: ", match.name)
+
+        # if no events are found for that match then a new one is created
         if len(matchEvent) == 0:
             create_event(service, calendar_id, match)
         else:
             matchEvent = matchEvent[0]
-            update_event(service, calendar_id, match, matchEvent)
+
+            if match.is_finished():
+                update_finished_event(service, calendar_id, match, matchEvent)
+            else:
+                update_event(service, calendar_id, match, matchEvent)
 
 
 def create_calendar(service, tournament_name):
@@ -168,7 +207,7 @@ def generate_calendar_urls(service):
     calendarsListResult = service.calendarList().list().execute()
     calendarsList = calendarsListResult.get('items', None)
     fileData = [
-        """### Importing a calendar:
+        r"""### Importing a calendar:
 1. Copy ICAL link from below.
 1. Add calendar by URL
     - Google: Go to [Add by URL](https://calendar.google.com/calendar/b/1/r/settings/addbyurl)

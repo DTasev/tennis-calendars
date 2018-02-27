@@ -1,4 +1,5 @@
 import datetime
+from enum import Enum
 
 
 class MatchTimes:
@@ -18,6 +19,29 @@ class MatchColors:
     INTERRUPTED = "1"  # Lavender
 
 
+class MatchStatus(Enum):
+    CANCELLED = "Cancelled"
+    CLOSED = "Closed"
+    LIVE = "Live"
+    NOT_STARTED = "Not Started"
+    INTERRUPTED = "Interrupted"
+
+    @staticmethod
+    def from_status(status: str):
+        if status == "cancelled" or status == "Canc":
+            return MatchStatus.CANCELLED
+        elif status == "closed" or status == "ended" or status == "Fin" or status == "Retired":
+            return MatchStatus.CLOSED
+        elif status == "live" or "S" in status:
+            return MatchStatus.LIVE
+        elif status == "not_started" or status == "" or status == "FRO":
+            return MatchStatus.NOT_STARTED
+        elif status == "Int":
+            return MatchStatus.INTERRUPTED
+        else:
+            raise ValueError("We can't handle the status of this match! Problematic state: `" + status + "`")
+
+
 class Match:
 
     def fix_round(self, round: str) -> str:
@@ -25,41 +49,46 @@ class Match:
         # and then capitalise the letters
         return round.replace("_", " ").capitalize()
 
-    def get_color(self, status) -> str:
-        if status == "cancelled" or status == "Canc":
+    def get_color(self, status: MatchStatus) -> str:
+        if status == MatchStatus.CANCELLED:
             return MatchColors.CANCELLED
-        elif status == "closed" or status == "ended" or status == "Fin" or status == "Retired":
+        elif status == MatchStatus.CLOSED:
             return MatchColors.CLOSED
-        elif status == "live" or "S" in status:
+        elif status == MatchStatus.LIVE:
             return MatchColors.LIVE
-        elif status == "not_started" or status == "" or status == "FRO":
+        elif status == MatchStatus.NOT_STARTED:
             return MatchColors.NOT_STARTED
-        elif status == "Int":
+        elif status == MatchStatus.INTERRUPTED:
             return MatchColors.INTERRUPTED
         else:
-            raise ValueError("We can't handle the status of this match! Problematic state: `" + status + "`")
+            raise ValueError("There is a status that doesn't have a color! Problematic status: `" + status + "`")
 
-    def status_from_color(self, color)->str:
+    def status_from_color(self, color: str)->MatchStatus:
         if color == MatchColors.CANCELLED:
-            return "Cancelled"
+            return MatchStatus.CANCELLED
         elif color == MatchColors.CLOSED:
-            return "Finished"
+            return MatchColors.CLOSED
         elif color == MatchColors.LIVE:
-            return "Live"
+            return MatchColors.LIVE
         elif color == MatchColors.NOT_STARTED:
-            return "Not Started"
+            return MatchColors.NOT_STARTED
         elif color == MatchColors.INTERRUPTED:
-            return "Interrupted"
+            return MatchColors.INTERRUPTED
+        else:
+            raise ValueError("There is a COLOR that doesn't have a STATUS! Problematic color: `" + color + "`")
 
     def is_still_going(self) -> bool:
-        return self.status == "live" or "S" in self.status or self.status == "Int"
+        return self._status == MatchStatus.LIVE or self._status == MatchStatus.INTERRUPTED
+
+    def is_finished(self)->bool:
+        return self._status == MatchStatus.CLOSED or self._status == MatchStatus.CANCELLED
 
     def __init__(self, player_one: str, player_two: str, round: str, status: str, time: datetime.datetime):
         self.player_one = player_one
         self.player_two = player_two
         self.round = self.fix_round(round)
-        self.status = status
-        self.color = self.get_color(status)
+        self._status = MatchStatus.from_status(status)
+        self.color = self.get_color(self._status)
         self.time = MatchTimes(time)
         self.name = f"{self.player_one} vs {self.player_two}"
 
