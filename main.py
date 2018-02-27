@@ -27,7 +27,7 @@ def create_event(service, calendar_id: str, match: Match):
     # e.g. the match has been going on 1h 40 mins, but the default duration is 1h 30 mins. The computed end time will show
     # that the match has ended 10 minutes ago, which is wrong. This checks for that case and makes sure that
     # if the initial match end time is less than NOW but the match is still GOIGN ON, then the end time is extended
-    if match.is_still_going_on() and match_time_end < now:
+    if match.is_still_going() and match_time_end < now:
         match_time_end = now + datetime.timedelta(minutes=MATCH_EXTEND_MINUTES)
 
     event = {
@@ -89,9 +89,9 @@ def update_event(service, calendar_id: str, match: Match, existing_event: {}):
     # if the match is live, but the end of the event in the calendar has passed, extend the end of the event
     # this will show in the calendar that the match hasn't yet ended
     now = datetime.datetime.now(tz=datetime.timezone.utc)
-    if match.is_still_going_on() and event_time_end < now:
+    if match.is_still_going() and event_time_end < now:
         # move the end forward
-        print("\tExtending end time as it hasn't ended.")
+        print("\tExtending end as it is still going.")
         event_time_end = now + datetime.timedelta(minutes=MATCH_EXTEND_MINUTES)
 
     event_time_end = event_time_end.isoformat()
@@ -110,12 +110,13 @@ def update_event(service, calendar_id: str, match: Match, existing_event: {}):
         update_result = service.events().update(calendarId=calendar_id, eventId=existing_event["id"],
                                                 body=existing_event).execute()
 
+        # the end="" removes the new line at the end
         print("\tUpdated event:\n",
               show_if_different("start", old_start, update_result["start"]["dateTime"]),
               show_if_different("end", old_end, update_result["end"]["dateTime"]),
-              show_if_different("color", old_color, match.color))
+              show_if_different("color", old_color, match.color), end="")
     else:
-        print("\tSkipping as it hasn't changed.")
+        print("\tNo change.")
 
 
 def update_calendar_events(service, calendar_id, matches: List[Match]):

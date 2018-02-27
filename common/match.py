@@ -39,7 +39,7 @@ class Match:
         else:
             raise ValueError("We can't handle the status of this match! Problematic state: `" + status + "`")
 
-    def is_still_going_on(self) -> bool:
+    def is_still_going(self) -> bool:
         return self.status == "live" or "S" in self.status or self.status == "Int"
 
     def __init__(self, player_one: str, player_two: str, round: str, status: str, time: datetime.datetime):
