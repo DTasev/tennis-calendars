@@ -11,10 +11,8 @@ class MatchColors:
     # These contain the Google Calendar Color IDs, which can be seen with
     # colors = service.colors().get().execute()
     CANCELLED = "8"  # Graphite
-    # I have no idea what closed means, but it looks like it's when the match ends, however there is also "ended" status
     CLOSED = "3"  # Grape
     LIVE = "10"  # Basil
-    # Not updating often enough to care about live matches
     NOT_STARTED = "2"  # Sage
     INTERRUPTED = "1"  # Lavender
 
@@ -61,26 +59,26 @@ class Match:
         elif status == MatchStatus.INTERRUPTED:
             return MatchColors.INTERRUPTED
         else:
-            raise ValueError("There is a status that doesn't have a color! Problematic status: `" + status + "`")
+            raise ValueError("There is a status that doesn't have a color! Problematic status: `" + str(status) + "`")
 
-    def status_from_color(self, color: str)->MatchStatus:
+    def status_from_color(self, color: str) -> MatchStatus:
         if color == MatchColors.CANCELLED:
             return MatchStatus.CANCELLED
         elif color == MatchColors.CLOSED:
-            return MatchColors.CLOSED
+            return MatchStatus.CLOSED
         elif color == MatchColors.LIVE:
-            return MatchColors.LIVE
+            return MatchStatus.LIVE
         elif color == MatchColors.NOT_STARTED:
-            return MatchColors.NOT_STARTED
+            return MatchStatus.NOT_STARTED
         elif color == MatchColors.INTERRUPTED:
-            return MatchColors.INTERRUPTED
+            return MatchStatus.INTERRUPTED
         else:
             raise ValueError("There is a COLOR that doesn't have a STATUS! Problematic color: `" + color + "`")
 
     def is_still_going(self) -> bool:
         return self._status == MatchStatus.LIVE or self._status == MatchStatus.INTERRUPTED
 
-    def is_finished(self)->bool:
+    def is_finished(self) -> bool:
         return self._status == MatchStatus.CLOSED or self._status == MatchStatus.CANCELLED
 
     def __init__(self, player_one: str, player_two: str, round: str, status: str, time: datetime.datetime):
