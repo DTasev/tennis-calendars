@@ -145,8 +145,6 @@ def update_finished_event(service, calendar_id: str, match: Match, existing_even
     if event_time_end > now and event_time_start < now:
         # convert the end time to isoformat at the same time as assigning
         event_time_end = now.isoformat()
-        print("\tNew event end:", event_time_end, "event time start:",
-              existing_event["start"]["dateTime"], "match status:", match._status)
         old_end = existing_event["end"]["dateTime"]
         old_color = existing_event["colorId"]
 
