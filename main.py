@@ -68,8 +68,19 @@ def different_colors(old, new):
     return old["colorId"] != new
 
 
-def show_if_different(word: str, old: str, new: str) -> str:
-    return f"\t\told {word}: {old}\n\t\tnew {word}: {new}\n" if old != new else ""
+def show_if_different(word: str, old: str, new: str, time=False) -> str:
+    if old != new:
+        full_str = f"\t\told {word}: {old}\n\t\tnew {word}: {new}\n"
+
+        # if the data is times, then parse and show difference
+        if time:
+            old_dt = from_google_date_to_datetime(old)
+            new_dt = from_google_date_to_datetime(new)
+            full_str += f"\t\tdiff: {new_dt-old_dt}\n"
+
+        return full_str
+    else:
+        return ""
 
 
 def from_google_date_to_datetime(google_date: str) -> datetime.datetime:
@@ -116,8 +127,8 @@ def update_event(service, calendar_id: str, match: Match, existing_event: {}):
 
         # the end="" removes the new line at the end
         print("\tUpdated event:\n",
-              show_if_different("start", old_start, update_result["start"]["dateTime"]),
-              show_if_different("end", old_end, update_result["end"]["dateTime"]),
+              show_if_different("start", old_start, update_result["start"]["dateTime"], time=True),
+              show_if_different("end", old_end, update_result["end"]["dateTime"], time=True),
               show_if_different("status", match.status_from_color(old_color), match.status_from_color(match.color)),
               end="")
     else:
