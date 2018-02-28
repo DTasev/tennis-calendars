@@ -118,7 +118,8 @@ def update_event(service, calendar_id: str, match: Match, existing_event: {}):
         print("\tUpdated event:\n",
               show_if_different("start", old_start, update_result["start"]["dateTime"]),
               show_if_different("end", old_end, update_result["end"]["dateTime"]),
-              show_if_different("status", match.status_from_color(old_color), match.status_from_color(match.color)), end="")
+              show_if_different("status", match.status_from_color(old_color), match.status_from_color(match.color)),
+              end="")
     else:
         print("\tNo change.")
 
@@ -146,7 +147,17 @@ def update_finished_event(service, calendar_id: str, match: Match, existing_even
         # the end="" removes the new line at the end
         print("\tUpdated finished event:\n",
               show_if_different("end", old_end, update_result["end"]["dateTime"]),
-              show_if_different("status", match.status_from_color(old_color), match.status_from_color(match.color)), end="")
+              show_if_different("status", match.status_from_color(old_color), match.status_from_color(match.color)),
+              end="")
+    elif existing_event["colorId"] != match.color:
+        old_color = existing_event["colorId"]
+
+        existing_event["colorId"] = match.color
+        update_result = service.events().update(calendarId=calendar_id, eventId=existing_event["id"],
+                                                body=existing_event).execute()
+        print("\tUpdated finished event color:\n",
+              show_if_different("status", match.status_from_color(old_color), match.status_from_color(match.color)),
+              end="")
     else:
         print("\tFinished. No changes.")
 
