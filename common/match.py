@@ -28,7 +28,7 @@ class Status(Enum):
     def from_status(status: str):
         if status == "cancelled" or status == "Canc":
             return Status.CANCELLED
-        elif status == "closed" or status == "ended" or status == "Fin" or status == "Retired":
+        elif status == "closed" or status == "ended" or status == "Fin" or status == "Retired" or status == "WO":
             return Status.CLOSED
         elif status == "live" or "S" in status:
             return Status.LIVE
