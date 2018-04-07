@@ -227,7 +227,9 @@ def generate_calendar_urls(service):
     calendarsListResult = service.calendarList().list().execute()
     calendarsList = calendarsListResult.get('items', None)
     fileData = [
-        r"""### Importing a calendar:
+        rf"""Updated (UTC) time: {datetime.datetime.utcnow().isoformat()+'Z'}
+
+### Importing a calendar:
 1. Copy ICAL link from below.
 1. Add calendar by URL
     - Google: Go to [Add by URL](https://calendar.google.com/calendar/b/1/r/settings/addbyurl)

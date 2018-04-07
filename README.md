@@ -1,1 +1,1 @@
-Tennis data is pulled from https://developer.sportradar.com/login, a registration and API access to Tennis API v2 is necessary.
+Tennis Calendars
