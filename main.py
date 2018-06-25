@@ -11,7 +11,8 @@ import gcalendar
 from apikeys import GIST_API_KEY, GIST_FILE_ID
 from common.match import Match
 # from sportradar import download, load
-from livescore_in import download, load
+# from livescore_in import download, load
+from livescore_in import LiveScoreDownloader
 from settings import CALENDAR_URLS_FILENAME, CALENDAR_EMBED_BASE_URL, CALENDAR_ICAL_BASE_URL, CALENDAR_IFRAME_BASE, \
     MATCH_EXTEND_MINUTES, MATCH_DEFAULT_DURATION_MINUTES
 
@@ -298,9 +299,9 @@ def generate_calendar_urls(service):
     print(gistResponse)
 
 
-def main(args):
-    if args.fetch:
-        download(today)
+def main(args, downloader): 
+    # if args.fetch:
+    #     download(today)
 
     # get calendars
     service = gcalendar.auth(args)
@@ -315,11 +316,11 @@ def main(args):
 
     print("Calendars moved to dictionary.")
 
-    tournament = load(today)
+    tournaments = downloader.download()
 
     id = 0
     # for every tournament
-    for tournament_name, matches in tournament.items():
+    for tournament_name, matches in tournaments.items():
         print("Processing tournament:", tournament_name)
         # check if there is a calendar for the tournament
         if tournament_name not in calendars:
@@ -354,4 +355,6 @@ def setup_args() -> argparse.ArgumentParser:
 if __name__ == "__main__":
     parser = setup_args()
     args = parser.parse_args()
-    main(args)
+
+    downloader = LiveScoreDownloader()
+    main(args, downloader)

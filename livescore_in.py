@@ -28,19 +28,52 @@ def get_table(browser):
             pass
 
 
-def download(today) -> str:
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless")
-    options.binary_location = CHROME_BINARY_LOCATION
-    chrome_driver_binary = CHROMEDRIVER_LOCATION
-    browser = webdriver.Chrome(chrome_driver_binary, chrome_options=options)
-    browser.get(LIVESCORE_URL)
-    match_table = get_table(browser)
-    browser.quit()
+class LiveScoreDownloader:
 
-    with open(f"cache/{today}.html", 'w') as f:
-        f.write(match_table)
-    return match_table
+    def __init__(self):
+        self.options = webdriver.ChromeOptions()
+        self.options.add_argument("--headless")
+        self.options.binary_location = CHROME_BINARY_LOCATION
+        self.chrome_driver_binary = CHROMEDRIVER_LOCATION
+        self.browser = webdriver.Chrome(chrome_driver_binary, chrome_options=options)
+
+    def get(self):
+        # Load the livescore page
+        self.browser.get(LIVESCORE_URL)
+        # parse the html for the match data
+        match_table = get_table(browser)
+        return match_table
+
+    def parse(self, data):
+        parsed_html = BeautifulSoup("\n".join(data), 'html5lib')
+        tournament_tables = parsed_html.body.find_all('table', attrs={'class': 'tennis'})
+        
+        tournament_data = {}
+        datetime_today = datetime.datetime.today()
+         
+        for tournament in tournament_tables:
+            group_by_tournament(datetime_today, tournament, tournament_data)
+        
+        return tournament_data
+
+    def download(self):
+        data = self.get()
+        tournament_data = self.parse(data)
+
+
+# def download(today) -> str:
+#     options = webdriver.ChromeOptions()
+#     options.add_argument("--headless")
+#     options.binary_location = CHROME_BINARY_LOCATION
+#     chrome_driver_binary = CHROMEDRIVER_LOCATION
+#     browser = webdriver.Chrome(chrome_driver_binary, chrome_options=options)
+#     browser.get(LIVESCORE_URL)
+#     match_table = get_table(browser)
+#     browser.quit()
+# 
+#     with open(f"cache/{today}.html", 'w') as f:
+#         f.write(match_table)
+#     return match_table
 
 
 def load(today):
