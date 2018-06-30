@@ -5,10 +5,10 @@ from typing import List
 
 import requests
 import requests.auth
+from apikeys import GIST_API_KEY, GIST_FILE_ID
 from oauth2client import tools
 
 import gcalendar
-from apikeys import GIST_API_KEY, GIST_FILE_ID
 from common.match import Match
 # from sportradar import download, load
 # from livescore_in import download, load
@@ -24,9 +24,11 @@ def create_event(service, calendar_id: str, match: Match):
     match_time_end = match.time.start + datetime.timedelta(minutes=MATCH_DEFAULT_DURATION_MINUTES)
     now = datetime.datetime.now(tz=datetime.timezone.utc)
 
-    # if the tennis match is still going on, but there is no existing event, then the computed end time might already have passed
-    # e.g. the match has been going on 1h 40 mins, but the default duration is 1h 30 mins. The computed end time will show
-    # that the match has ended 10 minutes ago, which is wrong. This checks for that case and makes sure that
+    # if the tennis match is still going on, but there is no existing event,
+    # then the computed end time might already have passed
+    # e.g. the match has been going on 1h 40 mins, but the default duration is 1h 30 mins.
+    # The computed end time will show that the match has ended 10 minutes ago, which is wrong.
+    # This checks for that case and makes sure that
     # if the initial match end time is less than NOW but the match is still GOIGN ON, then the end time is extended
     if match.is_still_going() and match_time_end < now:
         match_time_end = now + datetime.timedelta(minutes=MATCH_EXTEND_MINUTES)
@@ -299,7 +301,7 @@ def generate_calendar_urls(service):
     print(gistResponse)
 
 
-def main(args, downloader): 
+def main(args, downloader):
     # if args.fetch:
     #     download(today)
 
