@@ -1,27 +1,26 @@
 import argparse
 import datetime
 import json
+import time
 from typing import List
 
 import requests
 import requests.auth
-from apikeys import GIST_API_KEY, GIST_FILE_ID
+from httplib2 import Response
 from oauth2client import tools
 
 import gcalendar
+import project_settings
+from apikeys import GIST_API_KEY, GIST_FILE_ID
 from common.match import Match
-# from sportradar import download, load
-# from livescore_in import download, load
 from livescore_in import LiveScoreDownloader
-from settings import CALENDAR_URLS_FILENAME, CALENDAR_EMBED_BASE_URL, CALENDAR_ICAL_BASE_URL, CALENDAR_IFRAME_BASE, \
-    MATCH_EXTEND_MINUTES, MATCH_DEFAULT_DURATION_MINUTES
 
 today = datetime.datetime.now().strftime("%Y-%m-%d")
 
 
 def create_event(service, calendar_id: str, match: Match):
     # create the default duration for the tennis match
-    match_time_end = match.time.start + datetime.timedelta(minutes=MATCH_DEFAULT_DURATION_MINUTES)
+    match_time_end = match.time.start + datetime.timedelta(minutes=project_settings.MATCH_DEFAULT_DURATION_MINUTES)
     now = datetime.datetime.now(tz=datetime.timezone.utc)
 
     # if the tennis match is still going on, but there is no existing event,
@@ -31,7 +30,7 @@ def create_event(service, calendar_id: str, match: Match):
     # This checks for that case and makes sure that
     # if the initial match end time is less than NOW but the match is still GOIGN ON, then the end time is extended
     if match.is_still_going() and match_time_end < now:
-        match_time_end = now + datetime.timedelta(minutes=MATCH_EXTEND_MINUTES)
+        match_time_end = now + datetime.timedelta(minutes=project_settings.MATCH_EXTEND_MINUTES)
 
     event = {
         "summary": match.name,
@@ -99,7 +98,7 @@ def update_event(service, calendar_id: str, match: Match, existing_event: {}):
     # this can happen if the match time is moved N minutes forward, the end time also needs to be adjusted
     # NOTE this will only adjust the end time FORWARD. If the match is moved backwards the end time will NOT be
     # changed. Adjusting the time when the match is moved backwards will cause an issue with the event end adjustment!
-    expected_duration = match.time.start + datetime.timedelta(minutes=MATCH_DEFAULT_DURATION_MINUTES)
+    expected_duration = match.time.start + datetime.timedelta(minutes=project_settings.MATCH_DEFAULT_DURATION_MINUTES)
     if event_time_end < expected_duration:
         print("\tAdjusting end time.")
         event_time_end = expected_duration
@@ -110,7 +109,7 @@ def update_event(service, calendar_id: str, match: Match, existing_event: {}):
     if match.is_still_going() and event_time_end < now:
         # move the end forward
         print("\tExtending end as it is still going.")
-        event_time_end = now + datetime.timedelta(minutes=MATCH_EXTEND_MINUTES)
+        event_time_end = now + datetime.timedelta(minutes=project_settings.MATCH_EXTEND_MINUTES)
 
     event_time_end = event_time_end.isoformat()
 
@@ -132,7 +131,8 @@ def update_event(service, calendar_id: str, match: Match, existing_event: {}):
         print("\tUpdated event:\n",
               show_if_different("start", old_start, update_result["start"]["dateTime"], time=True),
               show_if_different("end", old_end, update_result["end"]["dateTime"], time=True),
-              show_if_different("status", match.status_from_color(old_color), match.status_from_color(match.color)),
+              show_if_different("status", str(match.status_from_color(old_color)),
+                                str(match.status_from_color(match.color))),
               end="")
     else:
         print("\tNo change.")
@@ -145,7 +145,7 @@ def update_finished_event(service, calendar_id: str, match: Match, existing_even
 
     # if the event has finished, but it's end time is after NOW, then change it to now
     # but make sure the event has actually started first, to avoid a Google Calendar event error
-    if event_time_end > now and event_time_start < now:
+    if event_time_end > now > event_time_start:
         # convert the end time to isoformat at the same time as assigning
         event_time_end = now.isoformat()
         old_end = existing_event["end"]["dateTime"]
@@ -159,7 +159,8 @@ def update_finished_event(service, calendar_id: str, match: Match, existing_even
         # the end="" removes the new line at the end
         print("\tUpdated finished event:\n",
               show_if_different("end", old_end, update_result["end"]["dateTime"]),
-              show_if_different("status", match.status_from_color(old_color), match.status_from_color(match.color)),
+              show_if_different("status", str(match.status_from_color(old_color)),
+                                str(match.status_from_color(match.color))),
               end="")
     elif existing_event["colorId"] != match.color:
         old_color = existing_event["colorId"]
@@ -168,7 +169,8 @@ def update_finished_event(service, calendar_id: str, match: Match, existing_even
         update_result = service.events().update(calendarId=calendar_id, eventId=existing_event["id"],
                                                 body=existing_event).execute()
         print("\tUpdated finished event color:\n",
-              show_if_different("status", match.status_from_color(old_color), match.status_from_color(match.color)),
+              show_if_different("status", str(match.status_from_color(old_color)),
+                                str(match.status_from_color(match.color))),
               end="")
     else:
         print("\tFinished. No changes.")
@@ -184,37 +186,37 @@ def update_calendar_events(service, calendar_id, matches: List[Match]):
     # get all events for today, hopefully 100 is big enough for a calendar
     # WARNING this also means that if this code is executed for past days, then the events WILL NEVER BE UPDATED
     # as they are never queried and duplicates will be created instead of updating the time!
-    eventsResult = service.events().list(calendarId=calendar_id, maxResults=100, timeMin=midnight).execute()
-    events = eventsResult.get('items', None)
+    events_result = service.events().list(calendarId=calendar_id, maxResults=100, timeMin=midnight).execute()
+    events = events_result.get('items', None)
     print("Retrieved events for calendar.")
 
     # TODO batch request https://developers.google.com/google-apps/calendar/batch
     for match in matches:
-        matchEvent = [event for event in events if event["summary"] == match.name]
-        if len(matchEvent) > 1:
+        match_event = [event for event in events if event["summary"] == match.name]
+        if len(match_event) > 1:
             raise ValueError("There is more than one event with matching names, and there should only be one!")
 
         print("Match: ", match.name)
 
         # if no events are found for that match then a new one is created
-        if len(matchEvent) == 0:
+        if len(match_event) == 0:
             create_event(service, calendar_id, match)
         else:
-            matchEvent = matchEvent[0]
+            match_event = match_event[0]
 
             if match.is_finished():
-                update_finished_event(service, calendar_id, match, matchEvent)
+                update_finished_event(service, calendar_id, match, match_event)
             else:
-                update_event(service, calendar_id, match, matchEvent)
+                update_event(service, calendar_id, match, match_event)
 
 
 def create_calendar(service, tournament_name):
-    calendarBody = {
+    calendar_body = {
         "summary": tournament_name
     }
     print("Creating calendar: ", tournament_name)
-    createdCalendar = service.calendars().insert(body=calendarBody).execute()
-    publicPermissions = {
+    created_calendar = service.calendars().insert(body=calendar_body).execute()
+    public_permissions = {
         "role": "reader",
         "scope": {
             "type": "default"
@@ -222,14 +224,14 @@ def create_calendar(service, tournament_name):
     }
 
     print("Adding public READ permission.")
-    service.acl().insert(calendarId=createdCalendar["id"], body=publicPermissions).execute()
-    return createdCalendar["id"]
+    service.acl().insert(calendarId=created_calendar["id"], body=public_permissions).execute()
+    return created_calendar["id"]
 
 
-def generate_calendar_urls(service):
-    calendarsListResult = service.calendarList().list().execute()
-    calendarsList = calendarsListResult.get('items', None)
-    fileData = [
+def generate_calendar_urls(service) -> Response:
+    calendars_list_result = service.calendarList().list().execute()
+    calendars_list = calendars_list_result.get('items', None)
+    file_data: List[str] = [
         rf"""Updated (UTC) time: {datetime.datetime.utcnow().isoformat()+'Z'}
 
 ### Importing a calendar:
@@ -270,50 +272,46 @@ def generate_calendar_urls(service):
 <hr/>
 """
     ]
-    for calendar in calendarsList:
+    for calendar in calendars_list:
         # remove primary calendar, and #contacts and #holidays
         if "@gmail" not in calendar["id"] and "#" not in calendar["id"]:
-            fileData.append(f"""### {calendar["summary"]}
-* ICAL: {CALENDAR_ICAL_BASE_URL.format(calendar["id"])}
-* Embed: {CALENDAR_EMBED_BASE_URL.format(calendar["id"])}
-* IFRAME: {CALENDAR_IFRAME_BASE.format(calendar["id"])}
+            file_data.append(f"""### {calendar["summary"]}
+* ICAL: {project_settings.CALENDAR_ICAL_BASE_URL.format(calendar["id"])}
+* Embed: {project_settings.CALENDAR_EMBED_BASE_URL.format(calendar["id"])}
+* IFRAME: {project_settings.CALENDAR_IFRAME_BASE.format(calendar["id"])}
 <hr/>
 """)
 
-    fileData = "\n".join(fileData)
-    with open(CALENDAR_URLS_FILENAME, 'w') as f:
-        f.write(fileData)
+    file_data = "\n".join(file_data)
+    with open(project_settings.CALENDAR_URLS_FILENAME, 'w') as f:
+        f.write(file_data)
 
     gist = {
         "description": "Tennis Calendars",
         "public": "true",
         "files": {
-            CALENDAR_URLS_FILENAME: {
-                "content": fileData
+            project_settings.CALENDAR_URLS_FILENAME: {
+                "content": file_data
             }
         }
 
     }
     print("Uploading calendar urls to GIST.")
-    gistResponse = requests.patch(f'https://api.github.com/gists/{GIST_FILE_ID}',
-                                  auth=requests.auth.HTTPBasicAuth("DTasev", GIST_API_KEY),
-                                  data=json.dumps(gist))
-    print(gistResponse)
+    gist_response = requests.patch(f'https://api.github.com/gists/{GIST_FILE_ID}',
+                                   auth=requests.auth.HTTPBasicAuth("DTasev", GIST_API_KEY),
+                                   data=json.dumps(gist))
+    print(gist_response)
+    return gist_response
 
 
-def main(args, downloader):
-    # if args.fetch:
-    #     download(today)
-
-    # get calendars
-    service = gcalendar.auth(args)
-    calendarsListResult = service.calendarList().list().execute()
-    calendarsList = calendarsListResult.get('items', None)
+def update_calendars(service, downloader) -> Response:
+    calendars_list_result = service.calendarList().list().execute()
+    calendars_list = calendars_list_result.get('items', None)
     calendars = {}
     print("Calendars downloaded.")
 
     # create a dictionary for every calendar
-    for c in calendarsList:
+    for c in calendars_list:
         calendars[c["summary"]] = {"id": c["id"]}
 
     print("Calendars moved to dictionary.")
@@ -341,7 +339,24 @@ def main(args, downloader):
             id += 1
 
     print("Generating calendar URLs.")
-    generate_calendar_urls(service)
+    return generate_calendar_urls(service)
+
+
+def main(args):
+    service = gcalendar.auth(args)
+    downloader = LiveScoreDownloader()
+
+    try:
+        while True:
+            response = update_calendars(service, downloader)
+
+            # TODO count failure and on Nth failure send me an email
+            if response.status_code != 200:
+                print(f"Expected 200 OK, but got {response}")
+
+            time.sleep(60)
+    except KeyboardInterrupt:
+        downloader.quit()
 
 
 def setup_args() -> argparse.ArgumentParser:
@@ -357,6 +372,4 @@ def setup_args() -> argparse.ArgumentParser:
 if __name__ == "__main__":
     parser = setup_args()
     args = parser.parse_args()
-
-    downloader = LiveScoreDownloader()
-    main(args, downloader)
+    main(args)

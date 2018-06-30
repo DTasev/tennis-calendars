@@ -28,7 +28,7 @@ def get_credentials(args):
     if not os.path.exists(credential_dir):
         os.makedirs(credential_dir)
     credential_path = os.path.join(credential_dir,
-                                   'calendar-python-quickstart.json')
+                                   'tennis-calendars.json')
 
     store = Storage(credential_path)
     credentials = store.get()
