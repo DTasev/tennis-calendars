@@ -90,6 +90,16 @@ def from_google_date_to_datetime(google_date: str) -> datetime.datetime:
                                       "%Y-%m-%dT%H:%M:%S%z")
 
 
+def from_google_date_to_datetime_ms(google_date: str) -> datetime.datetime:
+    """
+    Includes microseconds in the date format
+    :param google_date: String containing the date
+    :return: parsed datetime object
+    """
+    return datetime.datetime.strptime(google_date.replace("Z", "+0000"),
+                                      "%Y-%m-%dT%H:%M:%S.%f%z")
+
+
 def update_event(service, calendar_id: str, match: Match, existing_event: {}):
     match_time_start = match.time.start.isoformat()
     event_time_end = from_google_date_to_datetime(existing_event["end"]["dateTime"])
@@ -228,6 +238,15 @@ def create_calendar(service, tournament_name):
     return created_calendar["id"]
 
 
+def append_calendar_to_list(list_object: List[str], calendar_summary: str, calendar_id: str):
+    list_object.append(f"""### {calendar_summary}
+* ICAL: {project_settings.CALENDAR_ICAL_BASE_URL.format(calendar_id)}
+* Embed: {project_settings.CALENDAR_EMBED_BASE_URL.format(calendar_id)}
+* IFRAME: {project_settings.CALENDAR_IFRAME_BASE.format(calendar_id)}
+<hr/>
+""")
+
+
 def generate_calendar_urls(service) -> Response:
     calendars_list_result = service.calendarList().list().execute()
     calendars_list = calendars_list_result.get('items', None)
@@ -272,17 +291,40 @@ def generate_calendar_urls(service) -> Response:
 <hr/>
 """
     ]
+
+    # matches that are live
+    active: List[str] = []
+    # matches that have not had a match in the last day
+    inactive: List[str] = []
+    # matches that have not had a match in the last 3 days
+    archive: List[str] = []
     for calendar in calendars_list:
         # remove primary calendar, and #contacts and #holidays
         if "@gmail" not in calendar["id"] and "#" not in calendar["id"]:
-            file_data.append(f"""### {calendar["summary"]}
-* ICAL: {project_settings.CALENDAR_ICAL_BASE_URL.format(calendar["id"])}
-* Embed: {project_settings.CALENDAR_EMBED_BASE_URL.format(calendar["id"])}
-* IFRAME: {project_settings.CALENDAR_IFRAME_BASE.format(calendar["id"])}
-<hr/>
-""")
+            #             file_data.append(f"""### {calendar["summary"]}
+            # * ICAL: {project_settings.CALENDAR_ICAL_BASE_URL.format(calendar["id"])}
+            # * Embed: {project_settings.CALENDAR_EMBED_BASE_URL.format(calendar["id"])}
+            # * IFRAME: {project_settings.CALENDAR_IFRAME_BASE.format(calendar["id"])}
+            # <hr/>
+            # """)
+            latest_event = service.events().list(calendarId=calendar["id"], maxResults=1).execute()
+            t1 = from_google_date_to_datetime_ms(latest_event["updated"])
+            time_elapsed = datetime.datetime.now(tz=datetime.timezone.utc) - t1
+            if time_elapsed > datetime.timedelta(days=3):
+                append_calendar_to_list(archive, calendar["summary"], calendar["id"])
+            elif time_elapsed > datetime.timedelta(days=1):
+                append_calendar_to_list(inactive, calendar["summary"], calendar["id"])
+            else:
+                append_calendar_to_list(active, calendar["summary"], calendar["id"])
 
-    file_data = "\n".join(file_data)
+    file_data.append("# Active")
+    file_data.append("\n".join(active))
+    file_data.append("# Inactive")
+    file_data.append("\n".join(inactive))
+    file_data.append("# Archive")
+    file_data.append("\n".join(archive))
+
+    file_data: str = "\n".join(file_data)
     with open(project_settings.CALENDAR_URLS_FILENAME, 'w') as f:
         f.write(file_data)
 
@@ -339,6 +381,8 @@ def update_calendars(service, downloader) -> Response:
             id += 1
 
     print("Generating calendar URLs.")
+    # pass in the service so that all calendars can be retrieved again.
+    # This will include any newly created calendars here
     return generate_calendar_urls(service)
 
 
