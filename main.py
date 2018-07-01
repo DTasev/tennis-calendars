@@ -354,6 +354,12 @@ def main(args):
             if response.status_code != 200:
                 print(f"Expected 200 OK, but got {response}")
 
+            # TODO need a way to purge tournaments with matches older than a week? or longer?
+            # or move into a past section in the online MD page
+
+            # TODO make a webpage where u can click + and subscribe to tournament and get emails or phone notifications
+            # this should be doable by using Chrome's notification feature (need to check API)
+
             time.sleep(60)
     except KeyboardInterrupt:
         downloader.quit()

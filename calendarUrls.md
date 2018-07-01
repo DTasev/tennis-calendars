@@ -1,4 +1,4 @@
-Updated (UTC) time: 2018-06-30T21:22:00.651811Z
+Updated (UTC) time: 2018-06-30T21:25:26.343699Z
 
 ### Importing a calendar:
 1. Copy ICAL link from below.
